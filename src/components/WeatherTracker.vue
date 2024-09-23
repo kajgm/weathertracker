@@ -76,7 +76,7 @@ async function pollApi() {
 		currentHumidity.value = weatherData.current.relativeHumidity2m;
 		currentPP.value = weatherData.hourly.precipitationProbability[new Date().getHours()];
 
-	}).finally(console.log('Updated!'));
+	});
 };
 
 function pollTime() {
