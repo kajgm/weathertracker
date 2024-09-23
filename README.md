@@ -67,7 +67,7 @@ docker build -t kajgm/weathertracker .
 3. Run the dockerfile
 
 ```
-docker run -d -p 8080:80 --name weathertracker-1 kajgm/weathertracker
+docker run -d -p 8080:80 --restart always --name weathertracker-1 kajgm/weathertracker
 ```
 
 ## Deployment on Raspberry Pi
