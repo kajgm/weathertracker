@@ -17,7 +17,12 @@ const params = {
 const url = "https://api.open-meteo.com/v1/forecast";
 const weatherState = ref({ label: '', icon: 'moon-alt-full' });
 const currentTemp = ref('');
+const currentTempMax = ref('');
+const currentTempMin = ref('');
 const currentWindSpeed = ref('');
+const currentHumidity = ref(0);
+const currentPP = ref(0);
+const currentTime = ref('');
 
 async function pollApi() {
 	await fetchWeatherApi(url, params).then((res) => {
@@ -65,21 +70,56 @@ async function pollApi() {
 		};
 		weatherState.value = WeatherCodeMap[weatherData.current.weatherCode as keyof typeof WeatherCodeMap];
 		currentTemp.value = weatherData.current.temperature2m.toFixed(2);
+		currentTempMax.value = weatherData.daily.temperature2mMax[0].toFixed(2);
+		currentTempMin.value = weatherData.daily.temperature2mMin[0].toFixed(2);
 		currentWindSpeed.value = weatherData.current.windSpeed10m.toFixed(2);
-	});
-	setTimeout(pollApi, 10000);
+		currentHumidity.value = weatherData.current.relativeHumidity2m;
+		currentPP.value = weatherData.hourly.precipitationProbability[new Date().getHours()];
+
+	}).finally(console.log('Updated!'));
 };
+
+function pollTime() {
+	currentTime.value = new Date().toLocaleTimeString();
+}
 
 onMounted(() => {
 	pollApi();
+	pollTime();
+	setInterval(pollApi, 10000);
+	setInterval(pollTime, 1000);
 })
 </script>
 
 <template>
-	<p>The weather in {{ location.name }} is currently</p>
-	<Icon :icon="`wi:${weatherState.icon}`" style={{ color: white, fontSize: 32px }} />
-	<p>{{ weatherState.label }}</p>
-	<h1>{{ currentTemp }} °C</h1>
-	<p>{{ currentWindSpeed }} km/h</p>
-	<p>{{ location.coordinates[0].toFixed(2) }}, {{ location.coordinates[1].toFixed(2) }}</p>
+	<div class="p-1.5 w-full h-full">
+		<div class="bg-zinc-800 rounded-2xl w-full h-full">
+			<div class="flex flex-col p-2 h-full w-full">
+				<div class="text-center items-center pt-2">
+					<h1 class="text-4xl">{{ location.name }}</h1>
+					<p class="text-sm">{{ location.coordinates[0].toFixed(2) }}, {{
+						location.coordinates[1].toFixed(2)
+					}} / {{ currentTime }}</p>
+					<Icon :icon="`wi:${weatherState.icon}`" class="text-9xl mx-auto -mt-4 animate-bounce-slow" />
+					<p class="text-sm -mt-4 pb-1">{{ weatherState.label }}</p>
+					<h1 class="text-4xl">{{ currentTemp }} °C</h1>
+					<p class="text-sm"> {{ currentTempMin }} °C / {{ currentTempMax }} °C</p>
+				</div>
+				<div class="flex grow h-auto items-end">
+					<div class="flex mx-1 w-1/3 items-center justify-center">
+						<Icon icon="wi:humidity" class="text-3xl mx-1" />
+						<p class="text-2xl text-left inline-block">{{ currentHumidity }}%</p>
+					</div>
+					<div class="flex mx-1 w-1/3 items-center justify-center">
+						<Icon icon="wi:showers" class="text-3xl mx-1" />
+						<p class="text-2xl text-center inline-block">{{ currentPP }}%</p>
+					</div>
+					<div class="flex mx-1 w-1/3 items-center justify-center">
+						<Icon icon="wi:strong-wind" class="text-3xl mx-1" />
+						<p class="text-xl text-right inline-block">{{ currentWindSpeed }} km/h</p>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
 </template>
