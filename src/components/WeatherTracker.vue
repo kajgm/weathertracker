@@ -10,19 +10,23 @@ const params = {
 	"longitude": location.coordinates[1],
 	"current": ["temperature_2m", "relative_humidity_2m", "precipitation", "weather_code", "wind_speed_10m"],
 	"hourly": ["precipitation_probability", "precipitation"],
-	"daily": ["weather_code", "temperature_2m_max", "temperature_2m_min", "precipitation_probability_max"],
+	"daily": ["weather_code", "temperature_2m_max", "temperature_2m_min", "precipitation_probability_max", "precipitation_sum", "precipitation_hours"],
 	"timezone": "America/New_York",
 	"forecast_days": 1
 };
 const url = "https://api.open-meteo.com/v1/forecast";
 const weatherState = ref({ label: '', icon: 'moon-alt-full' });
 const currentTemp = ref('');
-const currentTempMax = ref('');
-const currentTempMin = ref('');
 const currentWindSpeed = ref('');
 const currentHumidity = ref(0);
 const currentPP = ref(0);
 const currentTime = ref('');
+
+const dailyTempMax = ref('');
+const dailyTempMin = ref('');
+const dailyPPMax = ref('');
+const dailyPPSum = ref('');
+const dailyPPHours = ref(0);
 
 async function pollApi() {
 	await fetchWeatherApi(url, params).then((res) => {
@@ -66,16 +70,21 @@ async function pollApi() {
 				temperature2mMax: daily.variables(1)!.valuesArray()!,
 				temperature2mMin: daily.variables(2)!.valuesArray()!,
 				precipitationProbabilityMax: daily.variables(3)!.valuesArray()!,
+				precipitationSum: daily.variables(4)!.valuesArray()!,
+				precipitationHours: daily.variables(5)!.valuesArray()!,
 			},
 		};
 		weatherState.value = WeatherCodeMap[weatherData.current.weatherCode as keyof typeof WeatherCodeMap];
 		currentTemp.value = weatherData.current.temperature2m.toFixed(2);
-		currentTempMax.value = weatherData.daily.temperature2mMax[0].toFixed(2);
-		currentTempMin.value = weatherData.daily.temperature2mMin[0].toFixed(2);
 		currentWindSpeed.value = weatherData.current.windSpeed10m.toFixed(2);
 		currentHumidity.value = weatherData.current.relativeHumidity2m;
 		currentPP.value = weatherData.hourly.precipitationProbability[new Date().getHours()];
 
+		dailyTempMax.value = weatherData.daily.temperature2mMax[0].toFixed(2);
+		dailyTempMin.value = weatherData.daily.temperature2mMin[0].toFixed(2);
+		dailyPPMax.value = weatherData.daily.precipitationProbabilityMax[0].toFixed(2);
+		dailyPPSum.value = weatherData.daily.precipitationSum[0].toFixed(2);
+		dailyPPHours.value = weatherData.daily.precipitationHours[0];
 	});
 };
 
@@ -86,7 +95,7 @@ function pollTime() {
 onMounted(() => {
 	pollApi();
 	pollTime();
-	setInterval(pollApi, 10000);
+	setInterval(pollApi, 1000000);
 	setInterval(pollTime, 1000);
 })
 </script>
@@ -97,26 +106,39 @@ onMounted(() => {
 			<div class="flex flex-col p-2 h-full w-full">
 				<div class="text-center items-center pt-2">
 					<h1 class="text-4xl">{{ location.name }}</h1>
-					<p class="text-sm">{{ location.coordinates[0].toFixed(2) }}, {{
+					<p class="text-md">{{ location.coordinates[0].toFixed(2) }}, {{
 						location.coordinates[1].toFixed(2)
 					}} / {{ currentTime }}</p>
-					<Icon :icon="`wi:${weatherState.icon}`" class="text-9xl mx-auto -mt-4 animate-bounce-slow" />
+					<Icon :icon="`wi:${weatherState.icon}`" class="text-8xl mx-auto animate-bounce-slow" />
 					<p class="text-sm -mt-4 pb-1">{{ weatherState.label }}</p>
-					<h1 class="text-4xl">{{ currentTemp }} °C</h1>
-					<p class="text-sm"> {{ currentTempMin }} °C / {{ currentTempMax }} °C</p>
+				</div>
+				<div class="flex grow h-auto">
+					<div class="flex mx-1 w-1/2 items-center justify-center">
+						<Icon icon="wi:thermometer" class="text-5xl" />
+						<div>
+							<h1 class="text-4xl">{{ currentTemp }} °C</h1>
+							<p class="text-md"> {{ dailyTempMin }} °C / {{ dailyTempMax }} °C</p>
+						</div>
+					</div>
+					<div class="flex mx-1 w-1/2 items-center justify-center">
+						<Icon v-if="dailyPPHours == 0" icon="wi:cloud" class="text-5xl" />
+						<Icon v-else-if="dailyPPHours > 0 && dailyPPHours <= 4" icon="wi:rain-mix" class="text-5xl" />
+						<Icon v-else-if="dailyPPHours > 4 && dailyPPHours <= 8" icon="wi:showers" class="text-5xl" />
+						<Icon v-else-if="dailyPPHours > 8" icon="wi:rain" class="text-5xl" />
+						<div>
+							<h1 class="text-4xl">{{ dailyPPSum }} mm</h1>
+							<p class="text-md ml-1">{{ currentPP }}% / {{ dailyPPMax }}%</p>
+						</div>
+					</div>
 				</div>
 				<div class="flex grow h-auto items-end">
-					<div class="flex mx-1 w-1/3 items-center justify-center">
-						<Icon icon="wi:humidity" class="text-3xl mx-1" />
-						<p class="text-2xl text-left inline-block">{{ currentHumidity }}%</p>
+					<div class="flex mx-1 w-1/2 items-center justify-center">
+						<Icon icon="wi:humidity" class="text-3xl" />
+						<p class="text-3xl text-left inline-block">{{ currentHumidity }}%</p>
 					</div>
-					<div class="flex mx-1 w-1/3 items-center justify-center">
-						<Icon icon="wi:showers" class="text-3xl mx-1" />
-						<p class="text-2xl text-center inline-block">{{ currentPP }}%</p>
-					</div>
-					<div class="flex mx-1 w-1/3 items-center justify-center">
+					<div class="flex mx-1 w-1/2 items-center justify-center">
 						<Icon icon="wi:strong-wind" class="text-3xl mx-1" />
-						<p class="text-xl text-right inline-block">{{ currentWindSpeed }} km/h</p>
+						<p class="text-3xl text-right inline-block">{{ currentWindSpeed }} km/h</p>
 					</div>
 				</div>
 			</div>
