@@ -95,7 +95,7 @@ function pollTime() {
 onMounted(() => {
 	pollApi();
 	pollTime();
-	setInterval(pollApi, 1000000);
+	setInterval(pollApi, 10000);
 	setInterval(pollTime, 1000);
 })
 </script>
