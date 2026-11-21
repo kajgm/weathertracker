@@ -1,4 +1,4 @@
-# Weather Tracker &middot; [![GitHub license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/kajgm/weathertracker/blob/master/LICENSE) ![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)
+# Weather Tracker &middot; [![GitHub license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/kajgm/weathertracker/blob/main/LICENSE) ![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)
 
 A minimal tracker for Weather. Intended for use on external Raspberry Pi based displays (3.5inch) or within a browser.
 
@@ -35,12 +35,6 @@ npm run dev
 
 ```sh
 npm run build
-```
-
-### Run Unit Tests with [Vitest](https://vitest.dev/)
-
-```sh
-npm run test
 ```
 
 ### Lint with [ESLint](https://eslint.org/)

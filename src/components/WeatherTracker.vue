@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { fetchWeatherApi } from 'openmeteo';
-import { onMounted, ref } from 'vue';
+import { onMounted, onUnmounted, ref } from 'vue';
 import { Icon } from '@iconify/vue';
-import { WeatherCodeMap } from '../types/types';
+import { UnknownWeatherState, WeatherCodeMap } from '../types/types';
 
 const location = { "name": "Toronto", "coordinates": [43.6532, -79.3832] }
 const params = {
@@ -15,6 +15,10 @@ const params = {
 	"forecast_days": 1
 };
 const url = "https://api.open-meteo.com/v1/forecast";
+// Open-Meteo refreshes its forecast data every 15 minutes and the free tier is
+// limited to 10,000 calls/day, so polling more often than this gains nothing.
+const API_POLL_INTERVAL_MS = 15 * 60 * 1000;
+const CLOCK_POLL_INTERVAL_MS = 1000;
 const weatherState = ref({ label: '', icon: 'moon-alt-full' });
 const currentTemp = ref('');
 const currentWindSpeed = ref('');
@@ -29,7 +33,8 @@ const dailyPPSum = ref('');
 const dailyPPHours = ref(0);
 
 async function pollApi() {
-	await fetchWeatherApi(url, params).then((res) => {
+	try {
+		const res = await fetchWeatherApi(url, params);
 
 		// Process first location. Add a for-loop for multiple locations or weather models
 		const response = res[0];
@@ -74,30 +79,44 @@ async function pollApi() {
 				precipitationHours: daily.variables(5)!.valuesArray()!,
 			},
 		};
-		weatherState.value = WeatherCodeMap[weatherData.current.weatherCode as keyof typeof WeatherCodeMap];
+		weatherState.value = WeatherCodeMap[weatherData.current.weatherCode] ?? UnknownWeatherState;
 		currentTemp.value = weatherData.current.temperature2m.toFixed(2);
 		currentWindSpeed.value = weatherData.current.windSpeed10m.toFixed(2);
 		currentHumidity.value = weatherData.current.relativeHumidity2m;
-		currentPP.value = weatherData.hourly.precipitationProbability[new Date().getHours()];
+		// The times above are shifted into the location's timezone, so read them with
+		// UTC getters. Using the browser's local clock would pick the wrong hour
+		// whenever the display isn't in the same timezone as the tracked location.
+		currentPP.value = weatherData.hourly.precipitationProbability[weatherData.current.time.getUTCHours()] ?? 0;
 
 		dailyTempMax.value = weatherData.daily.temperature2mMax[0].toFixed(2);
 		dailyTempMin.value = weatherData.daily.temperature2mMin[0].toFixed(2);
 		dailyPPMax.value = weatherData.daily.precipitationProbabilityMax[0].toFixed(2);
 		dailyPPSum.value = weatherData.daily.precipitationSum[0].toFixed(2);
 		dailyPPHours.value = weatherData.daily.precipitationHours[0];
-	});
-};
+	} catch (err) {
+		// Keep showing the last known values; the next poll will retry.
+		console.error('Failed to fetch weather data', err);
+	}
+}
 
 function pollTime() {
 	currentTime.value = new Date().toLocaleTimeString();
 }
 
+let apiTimer: ReturnType<typeof setInterval> | undefined;
+let clockTimer: ReturnType<typeof setInterval> | undefined;
+
 onMounted(() => {
 	pollApi();
 	pollTime();
-	setInterval(pollApi, 10000);
-	setInterval(pollTime, 1000);
-})
+	apiTimer = setInterval(pollApi, API_POLL_INTERVAL_MS);
+	clockTimer = setInterval(pollTime, CLOCK_POLL_INTERVAL_MS);
+});
+
+onUnmounted(() => {
+	clearInterval(apiTimer);
+	clearInterval(clockTimer);
+});
 </script>
 
 <template>

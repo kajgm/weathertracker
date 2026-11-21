@@ -1,25 +1,13 @@
-export interface WeatherResponse {
-  current: {
-    time: Date;
-    temperature2m: number;
-    precipitation: number;
-    weatherCode: number;
-  };
-  hourly: {
-    temperature2m: number;
-    relativeHumidity2m: number;
-    precipitationProbability: number;
-    precipitation: number;
-    weatherCode: number;
-  };
-  daily: {
-    weatherCode: number;
-    temperature2mMax: number;
-    temperature2mMin: number;
-  };
+export interface WeatherState {
+  label: string;
+  icon: string;
 }
 
-export const WeatherCodeMap = {
+// Shown when Open-Meteo returns a WMO code that isn't in the map below
+export const UnknownWeatherState: WeatherState = { label: 'Unknown', icon: 'na' };
+
+// WMO weather interpretation codes, as returned by Open-Meteo
+export const WeatherCodeMap: Record<number, WeatherState | undefined> = {
   0: { label: 'Clear', icon: 'day-sunny' },
   1: { label: 'Mostly Clear', icon: 'day-cloudy' },
   2: { label: 'Partly Cloudy', icon: 'day-sunny-overcast' },
