@@ -45,7 +45,7 @@ npm run lint
 
 ## Kubernetes Deployment (homelab)
 
-The app runs on the homelab Kubernetes cluster behind a Cloudflare Tunnel at `https://weather.kajgm.com`, and the Raspberry Pi only runs the kiosk browser. Multi-arch images are published to `ghcr.io/kajgm/weathertracker` by GitHub Actions on every `vX.Y.Z` tag. See [docs/homelab-deployment.md](docs/homelab-deployment.md) for the full procedure.
+The app runs on the homelab Kubernetes cluster at `https://weather.kajgm.com` (Cloudflare Tunnel) and `https://weather.lab.kajgm.com` (internal), and the Raspberry Pi only runs the kiosk browser. Multi-arch images are published to `ghcr.io/kajgm/weathertracker` by GitHub Actions on every `vX.Y.Z` tag. The Kubernetes manifests live in the homelab repo; see [docs/homelab-deployment.md](docs/homelab-deployment.md) for setup and the release flow.
 
 ## Docker Deployment
 
