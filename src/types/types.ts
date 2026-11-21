@@ -1,6 +1,8 @@
 export interface WeatherState {
   label: string;
   icon: string;
+  // Used instead of `icon` when Open-Meteo reports it is night (is_day = 0)
+  nightIcon?: string;
 }
 
 // Shown when Open-Meteo returns a WMO code that isn't in the map below
@@ -8,13 +10,13 @@ export const UnknownWeatherState: WeatherState = { label: 'Unknown', icon: 'na' 
 
 // WMO weather interpretation codes, as returned by Open-Meteo
 export const WeatherCodeMap: Record<number, WeatherState | undefined> = {
-  0: { label: 'Clear', icon: 'day-sunny' },
-  1: { label: 'Mostly Clear', icon: 'day-cloudy' },
-  2: { label: 'Partly Cloudy', icon: 'day-sunny-overcast' },
+  0: { label: 'Clear', icon: 'day-sunny', nightIcon: 'night-clear' },
+  1: { label: 'Mostly Clear', icon: 'day-cloudy', nightIcon: 'night-alt-partly-cloudy' },
+  2: { label: 'Partly Cloudy', icon: 'day-sunny-overcast', nightIcon: 'night-alt-cloudy' },
   3: { label: 'Cloudy', icon: 'cloud' },
-  45: { label: 'Fog', icon: 'day-fog' },
+  45: { label: 'Fog', icon: 'day-fog', nightIcon: 'night-fog' },
   48: { label: 'Freezing Fog', icon: 'fog' },
-  51: { label: 'Light Drizzle', icon: 'day-rain-mix' },
+  51: { label: 'Light Drizzle', icon: 'day-rain-mix', nightIcon: 'night-alt-rain-mix' },
   53: { label: 'Drizzle', icon: 'rain-mix' },
   55: { label: 'Heavy Drizzle', icon: 'rain-mix' },
   56: { label: 'Light Freezing Drizzle', icon: 'rain-mix' },
