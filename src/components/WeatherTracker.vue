@@ -1,116 +1,143 @@
 <script setup lang="ts">
 import { fetchWeatherApi } from 'openmeteo';
-import { onMounted, onUnmounted, ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { Icon } from '@iconify/vue';
 import { UnknownWeatherState, WeatherCodeMap } from '../types/types';
 
-const location = { "name": "Toronto", "coordinates": [43.6532, -79.3832] }
+const location = { name: 'Toronto', coordinates: [43.6532, -79.3832] };
+// Note: the order of variables here and the variables(i) indices in pollApi() must match.
 const params = {
-	"latitude": location.coordinates[0],
-	"longitude": location.coordinates[1],
-	"current": ["temperature_2m", "relative_humidity_2m", "precipitation", "weather_code", "wind_speed_10m"],
-	"hourly": ["precipitation_probability", "precipitation"],
-	"daily": ["weather_code", "temperature_2m_max", "temperature_2m_min", "precipitation_probability_max", "precipitation_sum", "precipitation_hours"],
-	"timezone": "America/New_York",
-	"forecast_days": 1
+	latitude: location.coordinates[0],
+	longitude: location.coordinates[1],
+	current: ['temperature_2m', 'weather_code', 'wind_speed_10m', 'is_day'],
+	hourly: ['temperature_2m', 'weather_code', 'precipitation_probability', 'is_day'],
+	daily: ['temperature_2m_max', 'temperature_2m_min'],
+	timezone: 'America/New_York',
+	// Two days so the forecast slots can reach past midnight.
+	forecast_days: 2,
 };
-const url = "https://api.open-meteo.com/v1/forecast";
+const url = 'https://api.open-meteo.com/v1/forecast';
+
 // Open-Meteo refreshes its forecast data every 15 minutes and the free tier is
 // limited to 10,000 calls/day, so polling more often than this gains nothing.
 const API_POLL_INTERVAL_MS = 15 * 60 * 1000;
 const CLOCK_POLL_INTERVAL_MS = 1000;
-const weatherState = ref({ label: '', icon: 'moon-alt-full' });
-const currentTemp = ref('');
-const currentWindSpeed = ref('');
-const currentHumidity = ref(0);
-const currentPP = ref(0);
-const currentTime = ref('');
+// Data older than two missed polls is flagged as stale on screen.
+const STALE_AFTER_MS = 2 * API_POLL_INTERVAL_MS + 60 * 1000;
+// Forecast slots: this many hours ahead of the current hour.
+const SLOT_OFFSETS_HOURS = [3, 6, 9, 12];
+// Night dimming window, in the display's local time (24h clock, start > end wraps midnight).
+const DIM_START_HOUR = 22;
+const DIM_END_HOUR = 7;
 
-const dailyTempMax = ref('');
-const dailyTempMin = ref('');
-const dailyPPMax = ref('');
-const dailyPPSum = ref('');
-const dailyPPHours = ref(0);
+interface Slot {
+	hour: string;
+	icon: string;
+	temp: number;
+	precipitationProbability: number;
+}
+
+const weatherIcon = ref('na');
+const weatherLabel = ref('');
+const currentTemp = ref<number | null>(null);
+const currentWindSpeed = ref<number | null>(null);
+const dailyTempMax = ref<number | null>(null);
+const dailyTempMin = ref<number | null>(null);
+const slots = ref<Slot[]>([]);
+
+const now = ref(new Date());
+const lastUpdated = ref<Date | null>(null);
+const lastFetchFailed = ref(false);
+
+function iconFor(code: number, isDay: boolean): string {
+	const state = WeatherCodeMap[code] ?? UnknownWeatherState;
+	return !isDay && state.nightIcon ? state.nightIcon : state.icon;
+}
 
 async function pollApi() {
 	try {
 		const res = await fetchWeatherApi(url, params);
-
-		// Process first location. Add a for-loop for multiple locations or weather models
 		const response = res[0];
-
-		// Helper function to form time ranges
-		const range = (start: number, stop: number, step: number) =>
-			Array.from({ length: (stop - start) / step }, (_, i) => start + i * step);
-
-		// Attributes for timezone and location
 		const utcOffsetSeconds = response.utcOffsetSeconds();
-
 		const current = response.current()!;
 		const hourly = response.hourly()!;
 		const daily = response.daily()!;
 
-		// Note: The order of weather variables in the URL query and the indices below need to match!
-		const weatherData = {
-			current: {
-				time: new Date((Number(current.time()) + utcOffsetSeconds) * 1000),
-				temperature2m: current.variables(0)!.value(),
-				relativeHumidity2m: current.variables(1)!.value(),
-				precipitation: current.variables(2)!.value(),
-				weatherCode: current.variables(3)!.value(),
-				windSpeed10m: current.variables(4)!.value(),
-			},
-			hourly: {
-				time: range(Number(hourly.time()), Number(hourly.timeEnd()), hourly.interval()).map(
-					(t) => new Date((t + utcOffsetSeconds) * 1000)
-				),
-				precipitationProbability: hourly.variables(0)!.valuesArray()!,
-				precipitation: hourly.variables(1)!.valuesArray()!,
-			},
-			daily: {
-				time: range(Number(daily.time()), Number(daily.timeEnd()), daily.interval()).map(
-					(t) => new Date((t + utcOffsetSeconds) * 1000)
-				),
-				weatherCode: daily.variables(0)!.valuesArray()!,
-				temperature2mMax: daily.variables(1)!.valuesArray()!,
-				temperature2mMin: daily.variables(2)!.valuesArray()!,
-				precipitationProbabilityMax: daily.variables(3)!.valuesArray()!,
-				precipitationSum: daily.variables(4)!.valuesArray()!,
-				precipitationHours: daily.variables(5)!.valuesArray()!,
-			},
-		};
-		weatherState.value = WeatherCodeMap[weatherData.current.weatherCode] ?? UnknownWeatherState;
-		currentTemp.value = weatherData.current.temperature2m.toFixed(2);
-		currentWindSpeed.value = weatherData.current.windSpeed10m.toFixed(2);
-		currentHumidity.value = weatherData.current.relativeHumidity2m;
-		// The times above are shifted into the location's timezone, so read them with
-		// UTC getters. Using the browser's local clock would pick the wrong hour
-		// whenever the display isn't in the same timezone as the tracked location.
-		currentPP.value = weatherData.hourly.precipitationProbability[weatherData.current.time.getUTCHours()] ?? 0;
+		const code = current.variables(1)!.value();
+		const isDay = current.variables(3)!.value() === 1;
+		weatherIcon.value = iconFor(code, isDay);
+		weatherLabel.value = (WeatherCodeMap[code] ?? UnknownWeatherState).label;
+		currentTemp.value = Math.round(current.variables(0)!.value());
+		currentWindSpeed.value = Math.round(current.variables(2)!.value());
 
-		dailyTempMax.value = weatherData.daily.temperature2mMax[0].toFixed(2);
-		dailyTempMin.value = weatherData.daily.temperature2mMin[0].toFixed(2);
-		dailyPPMax.value = weatherData.daily.precipitationProbabilityMax[0].toFixed(2);
-		dailyPPSum.value = weatherData.daily.precipitationSum[0].toFixed(2);
-		dailyPPHours.value = weatherData.daily.precipitationHours[0];
+		const hourlyStart = Number(hourly.time());
+		const hourlyInterval = hourly.interval();
+		const hourlyTemp = hourly.variables(0)!.valuesArray()!;
+		const hourlyCode = hourly.variables(1)!.valuesArray()!;
+		const hourlyPop = hourly.variables(2)!.valuesArray()!;
+		const hourlyIsDay = hourly.variables(3)!.valuesArray()!;
+		// Hourly data starts at 00:00 today (location time), so the current hour is its index.
+		const currentIndex = Math.floor((Number(current.time()) - hourlyStart) / hourlyInterval);
+
+		slots.value = SLOT_OFFSETS_HOURS.map((offset) => currentIndex + offset)
+			.filter((i) => i < hourlyTemp.length)
+			.map((i) => {
+				// Shifted into the location's timezone, so read it back with UTC getters.
+				const time = new Date((hourlyStart + i * hourlyInterval + utcOffsetSeconds) * 1000);
+				return {
+					hour: String(time.getUTCHours()).padStart(2, '0'),
+					icon: iconFor(hourlyCode[i], hourlyIsDay[i] === 1),
+					temp: Math.round(hourlyTemp[i]),
+					precipitationProbability: Math.round(hourlyPop[i] ?? 0),
+				};
+			});
+
+		dailyTempMax.value = Math.round(daily.variables(0)!.valuesArray()![0]);
+		dailyTempMin.value = Math.round(daily.variables(1)!.valuesArray()![0]);
+
+		lastUpdated.value = new Date();
+		lastFetchFailed.value = false;
 	} catch (err) {
-		// Keep showing the last known values; the next poll will retry.
+		// Keep showing the last known values; the indicator shows they're stale and the next poll retries.
+		lastFetchFailed.value = true;
 		console.error('Failed to fetch weather data', err);
 	}
 }
 
-function pollTime() {
-	currentTime.value = new Date().toLocaleTimeString();
-}
+const clock = computed(() =>
+	now.value.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })
+);
+
+const isStale = computed(
+	() =>
+		lastUpdated.value === null ||
+		now.value.getTime() - lastUpdated.value.getTime() > STALE_AFTER_MS
+);
+
+const updatedText = computed(() => {
+	if (lastUpdated.value === null) return lastFetchFailed.value ? 'No data' : 'Loading';
+	const time = lastUpdated.value.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+	if (!isStale.value) return time;
+	const minutes = Math.round((now.value.getTime() - lastUpdated.value.getTime()) / 60000);
+	return minutes < 120 ? `${minutes} min old` : `${Math.round(minutes / 60)} h old`;
+});
+
+const isNight = computed(() => {
+	const hour = now.value.getHours();
+	return DIM_START_HOUR > DIM_END_HOUR
+		? hour >= DIM_START_HOUR || hour < DIM_END_HOUR
+		: hour >= DIM_START_HOUR && hour < DIM_END_HOUR;
+});
+
+const display = (value: number | null) => (value === null ? '--' : String(value));
 
 let apiTimer: ReturnType<typeof setInterval> | undefined;
 let clockTimer: ReturnType<typeof setInterval> | undefined;
 
 onMounted(() => {
 	pollApi();
-	pollTime();
 	apiTimer = setInterval(pollApi, API_POLL_INTERVAL_MS);
-	clockTimer = setInterval(pollTime, CLOCK_POLL_INTERVAL_MS);
+	clockTimer = setInterval(() => (now.value = new Date()), CLOCK_POLL_INTERVAL_MS);
 });
 
 onUnmounted(() => {
@@ -120,45 +147,44 @@ onUnmounted(() => {
 </script>
 
 <template>
-	<div class="p-1.5 w-full h-full">
+	<div
+		class="p-1.5 w-full h-full transition-[filter] duration-[3000ms]"
+		:class="isNight ? 'brightness-[0.35]' : 'brightness-100'"
+	>
 		<div class="bg-zinc-800 rounded-2xl w-full h-full">
-			<div class="flex flex-col p-2 h-full w-full">
-				<div class="text-center items-center pt-2">
-					<h1 class="text-4xl">{{ location.name }}</h1>
-					<p class="text-md">{{ location.coordinates[0].toFixed(2) }}, {{
-						location.coordinates[1].toFixed(2)
-					}} / {{ currentTime }}</p>
-					<Icon :icon="`wi:${weatherState.icon}`" class="text-8xl mx-auto animate-bounce-slow" />
-					<p class="text-sm -mt-4 pb-1">{{ weatherState.label }}</p>
-				</div>
-				<div class="flex grow h-auto">
-					<div class="flex mx-1 w-1/2 items-center justify-center">
-						<Icon icon="wi:thermometer" class="text-5xl" />
-						<div>
-							<h1 class="text-4xl">{{ currentTemp }} °C</h1>
-							<p class="text-md"> {{ dailyTempMin }} °C / {{ dailyTempMax }} °C</p>
-						</div>
+			<div class="flex flex-col px-4 py-2 h-full w-full">
+				<!-- Current conditions -->
+				<div class="flex items-center justify-between">
+					<div class="flex items-center" :title="weatherLabel">
+						<Icon :icon="`wi:${weatherIcon}`" class="text-[96px] -my-2 text-zinc-300 animate-bounce-slow" />
+						<span class="text-[88px] leading-none text-zinc-100">{{ display(currentTemp) }}°</span>
 					</div>
-					<div class="flex mx-1 w-1/2 items-center justify-center">
-						<Icon v-if="dailyPPHours == 0" icon="wi:cloud" class="text-5xl" />
-						<Icon v-else-if="dailyPPHours > 0 && dailyPPHours <= 4" icon="wi:rain-mix" class="text-5xl" />
-						<Icon v-else-if="dailyPPHours > 4 && dailyPPHours <= 8" icon="wi:showers" class="text-5xl" />
-						<Icon v-else-if="dailyPPHours > 8" icon="wi:rain" class="text-5xl" />
-						<div>
-							<h1 class="text-4xl">{{ dailyPPSum }} mm</h1>
-							<p class="text-md ml-1">{{ currentPP }}% / {{ dailyPPMax }}%</p>
+					<div class="text-right">
+						<div class="text-[32px] leading-tight text-zinc-200">{{ clock }}</div>
+						<div class="text-[24px] leading-snug">L {{ display(dailyTempMin) }}° H {{ display(dailyTempMax) }}°</div>
+						<div class="text-[24px] leading-snug flex items-center justify-end">
+							<Icon icon="wi:strong-wind" class="text-[30px] mr-1" />{{ display(currentWindSpeed) }} km/h
 						</div>
 					</div>
 				</div>
-				<div class="flex grow h-auto items-end">
-					<div class="flex mx-1 w-1/2 items-center justify-center">
-						<Icon icon="wi:humidity" class="text-3xl" />
-						<p class="text-3xl text-left inline-block">{{ currentHumidity }}%</p>
+
+				<!-- Forecast slots -->
+				<div class="grid grid-cols-4 gap-1.5 grow text-center border-t-2 border-zinc-700 mt-1 pt-1">
+					<div v-for="slot in slots" :key="slot.hour" class="flex flex-col items-center justify-center">
+						<div class="text-[20px] leading-tight">{{ slot.hour }}</div>
+						<Icon :icon="`wi:${slot.icon}`" class="text-[44px] -my-1 text-zinc-300" />
+						<div class="text-[30px] leading-tight text-zinc-100">{{ slot.temp }}°</div>
+						<div class="text-[20px] leading-tight text-sky-300">{{ slot.precipitationProbability }}%</div>
 					</div>
-					<div class="flex mx-1 w-1/2 items-center justify-center">
-						<Icon icon="wi:strong-wind" class="text-3xl mx-1" />
-						<p class="text-3xl text-right inline-block">{{ currentWindSpeed }} km/h</p>
-					</div>
+				</div>
+
+				<!-- Last refreshed / stale indicator -->
+				<div
+					class="flex items-center justify-end text-[20px] leading-none -mt-1"
+					:class="isStale ? 'text-amber-400' : 'text-zinc-500'"
+				>
+					<Icon :icon="isStale ? 'mdi:alert-circle-outline' : 'mdi:refresh'" class="text-[22px] mr-1" />
+					{{ updatedText }}
 				</div>
 			</div>
 		</div>

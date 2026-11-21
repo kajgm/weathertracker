@@ -9,6 +9,7 @@ A minimal weather tracker, designed for small Raspberry Pi displays (3.5 inch) r
 - [How it works](#how-it-works)
 - [Development](#development)
 - [Configuration](#configuration)
+- [Display](#display)
 - [Container image](#container-image)
 - [Deploying with Docker](#deploying-with-docker)
 - [Deploying on Kubernetes](#deploying-on-kubernetes)
@@ -34,15 +35,24 @@ Requires [Node](https://nodejs.org/en/download) (the image builds with Node 26).
 
 ## Configuration
 
-The location and timezone are set at the top of [`src/components/WeatherTracker.vue`](src/components/WeatherTracker.vue):
+Settings live at the top of [`src/components/WeatherTracker.vue`](src/components/WeatherTracker.vue). Change them and rebuild the image.
 
-```ts
-const location = { "name": "Toronto", "coordinates": [43.6532, -79.3832] }
-// ...
-"timezone": "America/New_York",
-```
+| Setting | Default | Purpose |
+|---|---|---|
+| `location` | Toronto, `[43.6532, -79.3832]` | Forecast location |
+| `params.timezone` | `America/New_York` | Timezone of the location, used for forecast hours |
+| `SLOT_OFFSETS_HOURS` | `[3, 6, 9, 12]` | Forecast slots, in hours ahead of now |
+| `DIM_START_HOUR` / `DIM_END_HOUR` | `22` / `7` | Night dimming window, in the display's local time |
+| `STALE_AFTER_MS` | 31 minutes | Age after which the last-refreshed time turns amber |
 
-Change them and rebuild the image.
+## Display
+
+The screen is designed for 480×320 displays read from across a room, so nothing is smaller than 20px:
+
+- **Top:** current conditions icon and temperature, the clock, today's low and high, and wind speed.
+- **Middle:** four forecast slots (every 3 hours) with icon, temperature and chance of precipitation. Icons switch to night variants after dark.
+- **Bottom right:** the time of the last successful refresh. It turns amber with a warning icon and shows the data's age when updates stop arriving.
+- **Night dimming:** between `DIM_START_HOUR` and `DIM_END_HOUR`, the page fades to 35% brightness. This dims the pixels, not the backlight.
 
 ## Container image
 
