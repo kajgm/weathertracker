@@ -43,6 +43,10 @@ npm run build
 npm run lint
 ```
 
+## Kubernetes Deployment (homelab)
+
+The app runs on the homelab Kubernetes cluster at `https://weather.kajgm.com` (Cloudflare Tunnel) and `https://weather.lab.kajgm.com` (internal), and the Raspberry Pi only runs the kiosk browser. Multi-arch images are published to `ghcr.io/kajgm/weathertracker` by GitHub Actions on every `vX.Y.Z` tag. The Kubernetes manifests live in the homelab repo; see [docs/homelab-deployment.md](docs/homelab-deployment.md) for setup and the release flow.
+
 ## Docker Deployment
 
 To deploy within Docker, please follow these steps:
@@ -61,12 +65,12 @@ docker build -t kajgm/weathertracker .
 3. Run the dockerfile
 
 ```
-docker run -d -p 8080:80 --restart always --name weathertracker kajgm/weathertracker
+docker run -d -p 8080:8080 --restart always --name weathertracker kajgm/weathertracker
 ```
 
 ## Deployment on Raspberry Pi
 
-Ensure the Docker deployment steps from above are followed on the target Raspberry Pi
+When the app is hosted on Kubernetes, skip Docker on the Pi: `startup.sh` opens `https://weather.kajgm.com/` by default. For a fully local install, follow the Docker deployment steps above and run `WEATHERTRACKER_URL=http://localhost:8080/ ./startup.sh`.
 
 1. If running these commands over ssh, set the $DISPLAY environment variable
 
