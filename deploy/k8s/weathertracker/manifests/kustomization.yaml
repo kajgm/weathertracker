@@ -1,0 +1,11 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - namespace.yaml
+  - deployment.yaml
+  - service.yaml
+  - networkpolicy.yaml
+images:
+  - name: ghcr.io/kajgm/weathertracker
+    # Set to the release tag pushed by .github/workflows/image.yml (git tag vX.Y.Z -> X.Y.Z).
+    newTag: 1.0.0

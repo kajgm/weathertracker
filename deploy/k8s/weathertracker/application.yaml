@@ -1,0 +1,22 @@
+# Copy this folder to kajgm/homelab at k8s/apps/weathertracker/ and add
+# `weathertracker/application.yaml` to k8s/apps/kustomization.yaml.
+# Diff this against an existing app's application.yaml (e.g. convertx) and
+# match its project/finalizer conventions before committing.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: weathertracker
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/kajgm/homelab.git
+    targetRevision: main
+    path: k8s/apps/weathertracker/manifests
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: weathertracker
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
