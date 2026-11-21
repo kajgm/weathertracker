@@ -2,7 +2,7 @@ name: Container image
 
 # PRs: lint + build the image (no push) to prove the Dockerfile works.
 # main:  push ghcr.io/kajgm/weathertracker:main and :sha-<short>.
-# vX.Y.Z tags: push :X.Y.Z and :X.Y — the tags the homelab manifests pin.
+# vX.Y.Z tags: push :X.Y.Z and :X.Y — the tags deployments should pin.
 on:
   pull_request:
   push:
