@@ -1,9 +1,10 @@
 #!/bin/bash
 # Launch the weather display in kiosk mode on the Raspberry Pi.
-# Override the URL for a local Docker install: WEATHERTRACKER_URL=http://localhost:8080/ ./startup.sh
+# Defaults to a local container; point at a hosted instance with
+#   WEATHERTRACKER_URL=https://weather.example.com/ ./startup.sh
 export DISPLAY=:0
 
-URL="${WEATHERTRACKER_URL:-https://weather.kajgm.com/}"
+URL="${WEATHERTRACKER_URL:-http://localhost:8080/}"
 
 # Raspberry Pi OS Bookworm ships `chromium`; older releases ship `chromium-browser`.
 BROWSER="$(command -v chromium || command -v chromium-browser)"
