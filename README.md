@@ -35,25 +35,36 @@ Requires [Node](https://nodejs.org/en/download) (the image builds with Node 26).
 
 ## Configuration
 
-Settings live at the top of [`src/components/WeatherTracker.vue`](src/components/WeatherTracker.vue). Change them and rebuild the image.
+Settings live at the top of [`src/composables/useWeather.ts`](src/composables/useWeather.ts). Change them and rebuild the image.
 
 | Setting | Default | Purpose |
 |---|---|---|
 | `location` | Toronto, `[43.6532, -79.3832]` | Forecast location |
 | `params.timezone` | `America/New_York` | Timezone of the location, used for forecast hours |
 | `SLOT_OFFSETS_HOURS` | `[3, 6, 9, 12]` | Forecast slots, in hours ahead of now |
+| `HOURLY_HOURS` | `24` | Hours in the phone layout's expanded hourly forecast |
 | `DIM_START_HOUR` / `DIM_END_HOUR` | `22` / `7` | Night dimming window, in the display's local time |
 | `STALE_AFTER_MS` | 31 minutes | Age after which the last-refreshed time turns amber |
 
 ## Display
 
-The screen is designed for 480×320 displays read from across a room, so nothing is smaller than 20px:
+The kiosk screen is designed for 480×320 displays read from across a room, so nothing is smaller than 20px:
 
 - **Top:** current conditions icon and temperature, the clock, today's low and high, and wind speed.
 - **Middle:** four forecast slots (every 3 hours) with icon, temperature and chance of precipitation. Icons switch to night variants after dark.
 - **Bottom right:** the time of the last successful refresh. It turns amber with a warning icon and shows the data's age when updates stop arriving.
 - **Night dimming:** between `DIM_START_HOUR` and `DIM_END_HOUR`, the page fades to 35% brightness. This dims the pixels, not the backlight.
 - **Auto-update:** every 5 minutes the page checks `/version.json`. When a new version has been deployed, it reloads itself, so kiosks pick up upgrades without anyone touching them. A failed check is ignored and retried.
+
+### On a phone
+
+Phones held upright (narrower than 640px, portrait) get a full-height layout instead of the 480×320 box:
+
+- **At a glance:** location and date, the clock, a large current temperature with its condition, today's low and high, and wind.
+- **Forecast strip:** the same four 3-hour slots. Tap it to expand an hour-by-hour list for the next 24 hours (icon, chance of precipitation and temperature). Tap the chevron, or press Escape, to collapse it.
+- **Status:** the last-refreshed time. When data is stale it becomes an amber banner.
+
+Night dimming is kiosk-only. Phones in landscape get the kiosk layout.
 
 ## Container image
 
