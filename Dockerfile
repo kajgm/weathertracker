@@ -4,7 +4,7 @@
 FROM --platform=$BUILDPLATFORM node:26.13.1-alpine3.24 AS build-stage
 WORKDIR /app
 COPY package*.json ./
-RUN npm install --no-audit --no-fund
+RUN npm ci --no-audit --no-fund
 COPY . .
 RUN npm run build
 
