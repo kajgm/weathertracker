@@ -9,10 +9,10 @@ const params = {
 	longitude: location.coordinates[1],
 	current: ['temperature_2m', 'weather_code', 'wind_speed_10m', 'is_day'],
 	hourly: ['temperature_2m', 'weather_code', 'precipitation_probability', 'is_day'],
-	daily: ['temperature_2m_max', 'temperature_2m_min'],
+	daily: ['temperature_2m_max', 'temperature_2m_min', 'weather_code', 'precipitation_probability_max'],
 	timezone: 'America/New_York',
-	// Two days so the forecast slots and the hourly list can reach past midnight.
-	forecast_days: 2,
+	// A week for the daily forecast; this also lets the slots and hourly list reach past midnight.
+	forecast_days: 7,
 };
 const url = 'https://api.open-meteo.com/v1/forecast';
 
@@ -29,6 +29,16 @@ const HOURLY_HOURS = 24;
 // Night dimming window, in the display's local time (24h clock, start > end wraps midnight).
 const DIM_START_HOUR = 22;
 const DIM_END_HOUR = 7;
+
+export interface Day {
+	// Short weekday name ("Sat"), or "Today" for the first day.
+	day: string;
+	icon: string;
+	label: string;
+	tempMin: number;
+	tempMax: number;
+	precipitationProbability: number;
+}
 
 export interface Slot {
 	// Hour of day in the location's timezone, zero-padded ("15").
@@ -60,6 +70,7 @@ export function useWeather() {
 	const dailyTempMin = ref<number | null>(null);
 	const slots = ref<Slot[]>([]);
 	const hourly = ref<Slot[]>([]);
+	const daily = ref<Day[]>([]);
 
 	const now = ref(new Date());
 	const lastUpdated = ref<Date | null>(null);
@@ -72,7 +83,7 @@ export function useWeather() {
 			const utcOffsetSeconds = response.utcOffsetSeconds();
 			const current = response.current()!;
 			const hourlyData = response.hourly()!;
-			const daily = response.daily()!;
+			const dailyData = response.daily()!;
 
 			const code = current.variables(1)!.value();
 			const isDay = current.variables(3)!.value() === 1;
@@ -110,8 +121,26 @@ export function useWeather() {
 				.filter(inRange)
 				.map(slotAt);
 
-			dailyTempMax.value = Math.round(daily.variables(0)!.valuesArray()![0]);
-			dailyTempMin.value = Math.round(daily.variables(1)!.valuesArray()![0]);
+			const dailyStart = Number(dailyData.time());
+			const dailyInterval = dailyData.interval();
+			const dailyMax = dailyData.variables(0)!.valuesArray()!;
+			const dailyMin = dailyData.variables(1)!.valuesArray()!;
+			const dailyCode = dailyData.variables(2)!.valuesArray()!;
+			const dailyPop = dailyData.variables(3)!.valuesArray()!;
+			daily.value = Array.from(dailyMax, (max, i) => {
+				// Shifted into the location's timezone, so read it back in UTC.
+				const time = new Date((dailyStart + i * dailyInterval + utcOffsetSeconds) * 1000);
+				return {
+					day: i === 0 ? 'Today' : time.toLocaleDateString([], { weekday: 'short', timeZone: 'UTC' }),
+					icon: iconFor(dailyCode[i], true),
+					label: stateFor(dailyCode[i]).label,
+					tempMin: Math.round(dailyMin[i]),
+					tempMax: Math.round(max),
+					precipitationProbability: Math.round(dailyPop[i] ?? 0),
+				};
+			});
+			dailyTempMax.value = Math.round(dailyMax[0]);
+			dailyTempMin.value = Math.round(dailyMin[0]);
 
 			lastUpdated.value = new Date();
 			lastFetchFailed.value = false;
@@ -173,6 +202,7 @@ export function useWeather() {
 		dailyTempMin,
 		slots,
 		hourly,
+		daily,
 		clock,
 		date,
 		isStale,
