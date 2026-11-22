@@ -79,11 +79,13 @@ nginx settings live in [deploy/nginx/default.conf](deploy/nginx/default.conf).
 | Push to `main` | `main`, `sha-<short>` |
 | Git tag `vX.Y.Z` | `X.Y.Z`, `X.Y` |
 
-To release a version:
+To release a version, run the [Release workflow](.github/workflows/release.yml) from the **Actions** tab on `main`. Choose `patch`, `minor` or `major` (or type an exact version). It tags the commit as the next `vX.Y.Z` after the latest tag, publishes a GitHub release with generated notes, and starts the image build for that tag.
+
+Pushing a tag by hand still works too:
 
 ```sh
-git tag v1.0.0
-git push origin v1.0.0
+git tag v1.2.0
+git push origin v1.2.0
 ```
 
 Pin deployments to an `X.Y.Z` tag rather than `main`.
