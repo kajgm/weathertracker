@@ -53,6 +53,7 @@ The screen is designed for 480×320 displays read from across a room, so nothing
 - **Middle:** four forecast slots (every 3 hours) with icon, temperature and chance of precipitation. Icons switch to night variants after dark.
 - **Bottom right:** the time of the last successful refresh. It turns amber with a warning icon and shows the data's age when updates stop arriving.
 - **Night dimming:** between `DIM_START_HOUR` and `DIM_END_HOUR`, the page fades to 35% brightness. This dims the pixels, not the backlight.
+- **Auto-update:** every 5 minutes the page checks `/version.json`. When a new version has been deployed, it reloads itself, so kiosks pick up upgrades without anyone touching them. A failed check is ignored and retried.
 
 ## Container image
 
@@ -63,7 +64,7 @@ The [Dockerfile](Dockerfile) builds the app with Node and serves it with [nginx-
 | Port | `8080` |
 | User | non-root, uid `101` |
 | Health check | `GET /healthz` → `200 ok` |
-| Caching | hashed `/assets/*` cached for a year; `index.html` is `no-cache`, so open displays pick up new versions on reload |
+| Caching | hashed `/assets/*` cached for a year; `index.html` and `version.json` are `no-cache`, so open displays pick up new versions |
 | Writable paths | `/tmp` only, so the container runs with a read-only root filesystem |
 | Platforms | `linux/amd64`, `linux/arm64` |
 
@@ -179,7 +180,7 @@ spec:
 Notes:
 
 - **Network policies:** the pod needs no egress at all, not even DNS, so a default-deny policy with ingress allowed only from your ingress controller or tunnel on port **8080** works. Policies match the pod port (8080), not the Service port (80).
-- **Upgrades:** change the image tag. Displays load the new version on their next page reload.
+- **Upgrades:** change the image tag. Open displays notice the new version within 5 minutes and reload themselves.
 
 ## Raspberry Pi kiosk
 
@@ -227,4 +228,4 @@ wget "http://archive.raspberrypi.org/debian/pool/main/c/chromium-browser/chromiu
 sudo apt install --no-install-recommends --allow-downgrades --allow-change-held-packages ./chromium-browser_88.0.4324.187-rpt1_armhf.deb ./chromium-codecs-ffmpeg-extra_88.0.4324.187-rpt1_armhf.deb
 ```
 
-**The display shows an old version after an upgrade.** Reload the page, or rerun `startup.sh`.
+**The display shows an old version after an upgrade.** Displays reload themselves within 5 minutes of a new version being served. If one doesn't, check that `/version.json` isn't cached by a proxy in front of the app, then reload the page or rerun `startup.sh`.
