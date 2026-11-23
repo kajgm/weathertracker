@@ -4,6 +4,12 @@ export default {
   content: ['./index.html', './src/**/*.{vue,js,ts,jsx,tsx}'],
   theme: {
     extend: {
+      // Tokens live in src/style.css :root.
+      colors: Object.fromEntries(
+        ['page', 'panel', 'line', 'raised', 'pressed', 'faint', 'muted', 'soft', 'ink', 'strong', 'rain', 'warn', 'warn-wash'].map(
+          (name) => [name, `var(--color-${name})`]
+        )
+      ),
       spacing: {
         'pi-w': '480px',
         'pi-h': '320px'

@@ -1,24 +1,46 @@
+/* Hallmark · checked: 2026-11-23 · genre: modern-minimal (inferred) · shape: app screen
+ * floor: 0 FAIL · fixed: 6 (48, 50, 62, 4, 27, 74) · structural: none printed
+ * built: the project · redesign: polish · v2.0.0 */
+/* Hallmark · waive 26b · no disabled attribute or aria-disabled in the app · no forecast button is ever disabled */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --color-page: #181818;
+  --color-panel: #27272a;
+  --color-line: #3f3f46;
+  --color-raised: rgb(63 63 70 / 0.6);
+  --color-pressed: #52525b;
+  --color-faint: #71717a;
+  --color-muted: #a1a1aa;
+  --color-soft: #d4d4d8;
+  --color-ink: #e4e4e7;
+  --color-strong: #f4f4f5;
+  --color-rain: #7dd3fc;
+  --color-warn: #fbbf24;
+  --color-warn-wash: rgb(251 191 36 / 0.1);
+  --color-body: #ebebeba3;
+  --font-body: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell,
+    'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+}
+
+html,
 body {
-  color: #ebebeba3;
-  background: #181818;
-  font-family:
-    Inter,
-    -apple-system,
-    BlinkMacSystemFont,
-    'Segoe UI',
-    Roboto,
-    Oxygen,
-    Ubuntu,
-    Cantarell,
-    'Fira Sans',
-    'Droid Sans',
-    'Helvetica Neue',
-    sans-serif;
+  overflow-x: clip;
+}
+
+body {
+  color: var(--color-body);
+  background: var(--color-page);
+  font-family: var(--font-body);
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-bounce-slow {
+    animation: none;
+  }
 }
